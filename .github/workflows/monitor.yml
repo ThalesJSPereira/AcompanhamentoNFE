@@ -1,38 +1,50 @@
-name: Monitor NFe Notas Técnicas
+name: Monitor NFe
 
 on:
   schedule:
-    - cron: '0 9,21 * * *'   # 09h e 21h UTC = 06h e 18h em Brasília
+    - cron: '0 8 * * *'
   workflow_dispatch:
 
-permissions:
-  contents: write   # necessário para o bot commitar o histórico
-
 jobs:
-  monitor:
+  monitorar:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout do repositório
+        uses: actions/checkout@v3
 
-      - name: Setup Python
-        uses: actions/setup-python@v5
+      - name: Configurar Python
+        uses: actions/setup-python@v4
         with:
           python-version: '3.11'
 
       - name: Instalar dependências
-        run: pip install requests beautifulsoup4
+        run: pip install -r requirements.txt
 
-      - name: Executar monitor
+      - name: Executar monitor NFe
         env:
-          SMTP_USER: ${{ secrets.SMTP_USER }}
-          SMTP_PASS: ${{ secrets.SMTP_PASS }}
-          EMAIL_DESTINO: ${{ secrets.EMAIL_DESTINO }}
+          EMAIL_REMETENTE: ${{ secrets.EMAIL_REMETENTE }}
+          EMAIL_SENHA: ${{ secrets.EMAIL_SENHA }}
+          EMAIL_DESTINATARIO: ${{ secrets.EMAIL_DESTINATARIO }}
         run: python nfe_monitor.py
 
-      - name: Commitar histórico atualizado
+      - name: Executar monitor PR
+        env:
+          EMAIL_REMETENTE: ${{ secrets.EMAIL_REMETENTE }}
+          EMAIL_SENHA: ${{ secrets.EMAIL_SENHA }}
+          EMAIL_DESTINATARIO: ${{ secrets.EMAIL_DESTINATARIO }}
+        run: python monitor_pr.py
+
+      - name: Executar monitor RS
+        env:
+          EMAIL_REMETENTE: ${{ secrets.EMAIL_REMETENTE }}
+          EMAIL_SENHA: ${{ secrets.EMAIL_SENHA }}
+          EMAIL_DESTINATARIO: ${{ secrets.EMAIL_DESTINATARIO }}
+        run: python monitor_rs.py
+
+      - name: Commit changes
         run: |
-          git config user.name "nfe-monitor-bot"
-          git config user.email "bot@nfe-monitor.local"
-          git add historico_nts.json
-          git diff --staged --quiet || git commit -m "Atualiza histórico de NTs [skip ci]"
+          git config user.name "github-actions"
+          git config user.email "actions@github.com"
+          git add historico_nts.json historico_pr.json historico_rs.json
+          git commit -m "Atualiza histórico" || echo "Nada para commitar"
           git push
