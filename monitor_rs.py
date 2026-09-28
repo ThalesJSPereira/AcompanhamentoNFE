@@ -6,22 +6,30 @@ from datetime import datetime
 import smtplib
 from email.mime.text import MIMEText
 
-URL = "https://dfe-portal.svrs.rs.gov.br/NFE"
+URL = "https://dfe-portal.svrs.rs.gov.br/DFe/Documentos"
 HISTORICO_ARQUIVO = "historico_rs.json"
 
 def buscar_documentos():
-    resp = requests.get(URL, timeout=30)
+    headers = {"User-Agent": "Mozilla/5.0 (compatible; MonitorNFe/1.0)"}
+    resp = requests.get(URL, headers=headers, timeout=30)
     resp.raise_for_status()
     soup = BeautifulSoup(resp.content, "html.parser")
 
     itens = []
-    # A seção "Documentos" lista categorias (Manuais, Notas Técnicas, etc)
-    # cada item costuma vir com data + título em elementos de lista/cards
-    blocos = soup.find_all(["li", "div"], class_=lambda c: c and ("item" in c.lower() or "doc" in c.lower()))
-    for bloco in blocos:
-        texto = bloco.get_text(separator=" | ", strip=True)
-        if texto and len(texto) > 15:
-            itens.append(texto)
+    # Percorre todos os títulos (geralmente h2/h3) e tenta achar a data associada
+    for titulo in soup.find_all(["h2", "h3", "h4"]):
+        texto_titulo = titulo.get_text(strip=True)
+        if not texto_titulo or len(texto_titulo) < 5:
+            continue
+
+        # Procura uma data (dd/mm/aaaa) em elementos vizinhos anteriores
+        data_encontrada = ""
+        anterior = titulo.find_previous(string=lambda s: s and "/" in s and len(s.strip()) <= 12)
+        if anterior:
+            data_encontrada = anterior.strip()
+
+        item = f"{data_encontrada} | {texto_titulo}"
+        itens.append(item)
 
     return itens
 
@@ -61,6 +69,8 @@ def main():
     if not itens_atuais:
         print("[AVISO] Nenhum item encontrado. O layout do site pode ter mudado.")
         return
+
+    print(f"[DEBUG] {len(itens_atuais)} itens capturados na página.")
 
     historico = carregar_historico()
     novos = [item for item in itens_atuais if item not in historico]
