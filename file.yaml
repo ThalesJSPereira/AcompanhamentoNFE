@@ -1,7 +1,0 @@
-      - name: Commit changes
-        run: |
-          git config user.name "github-actions"
-          git config user.email "actions@github.com"
-          git add historico_nts.json historico_pr.json historico_rs.json
-          git commit -m "Atualiza histórico" || echo "Nada para commitar"
-          git push
